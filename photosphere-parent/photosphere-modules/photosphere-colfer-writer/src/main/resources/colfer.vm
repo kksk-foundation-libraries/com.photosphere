@@ -1,0 +1,9 @@
+package ${file.name}
+#foreach($struct in ${file.structs})
+
+type ${struct.name} struct {
+#foreach($field in ${struct.fields})
+	${field.name} ${field.fieldType.disp}
+#end
+}
+#end
