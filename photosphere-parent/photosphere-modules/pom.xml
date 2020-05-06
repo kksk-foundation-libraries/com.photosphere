@@ -49,5 +49,6 @@
 		<module>photosphere-test-logging</module>
 		<module>photosphere-colfer-model</module>
 		<module>photosphere-colfer-writer</module>
+		<module>photosphere-colfer-generator</module>
 	</modules>
 </project>
