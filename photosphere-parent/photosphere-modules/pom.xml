@@ -51,6 +51,7 @@
 		<module>photosphere-colfer-model</module>
 		<module>photosphere-colfer-writer</module>
 		<module>photosphere-colfer-generator</module>
+		<module>photosphere-dynamic-generator</module>
 	</modules>
 	<build>
 		<plugins>
