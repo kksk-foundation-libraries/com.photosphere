@@ -54,6 +54,18 @@ public class DynamicGenerator {
 	}
 
 	@SuppressWarnings("unchecked")
+	public <T> T newInstance(String fqcn) throws CompileException {
+		Constructor<?> constructor = constructors.get(fqcn);
+		if (constructor == null)
+			throw new CompileException(new NullPointerException());
+		try {
+			return (T) constructor.newInstance();
+		} catch (Exception e) {
+			throw new CompileException(e);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
 	public <T> T newInstance(String source, String fqcn) throws CompileException {
 		AtomicReference<CompileException> errors = new AtomicReference<>();
 		Constructor<?> constructor = constructors.computeIfAbsent(fqcn, _fqcn -> {
