@@ -29,6 +29,8 @@ import com.photosphere.colfer.generator.CompileException;
 
 public class DynamicGenerator {
 	private static final Logger LOG = LoggerFactory.getLogger(DynamicGenerator.class);
+	public static final DynamicGenerator instance = new DynamicGenerator();
+	
 	private final ConcurrentMap<String, Constructor<?>> constructors = new ConcurrentHashMap<>();
 	private final ClassLoader cl = ClassLoader.getSystemClassLoader();
 	private final Method m;
@@ -36,6 +38,7 @@ public class DynamicGenerator {
 	private final DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 	private final StandardJavaFileManager standardFileManager = compiler.getStandardFileManager(diagnostics, null, null);
 	private final ConcurrentMap<String, JavaFileObject> volatileMap = new ConcurrentHashMap<>();
+	private final ConcurrentMap<String, String> aliasMap = new ConcurrentHashMap<>();
 	private final JavaFileManager fileManager = new ForwardingJavaFileManager<StandardJavaFileManager>(standardFileManager) {
 		@Override
 		public JavaFileObject getJavaFileForOutput(Location location, String className, JavaFileObject.Kind kind, FileObject sibling) throws IOException {
@@ -43,7 +46,7 @@ public class DynamicGenerator {
 		}
 	};
 
-	public DynamicGenerator() {
+	private DynamicGenerator() {
 		Method method = null;
 		try {
 			method = ClassLoader.class.getDeclaredMethod("defineClass", String.class, byte[].class, Integer.TYPE, Integer.TYPE);
@@ -52,9 +55,17 @@ public class DynamicGenerator {
 		}
 		m = method;
 	}
+	
+	public boolean isLoadedAlias(String alias) {
+		return aliasMap.containsKey(alias);
+	}
+	
+	public boolean isLoaded(String fqcn) {
+		return constructors.containsKey(fqcn);
+	}
 
 	@SuppressWarnings("unchecked")
-	public <T> T newInstance(String fqcn) throws CompileException {
+	public <T> T createInstance(String fqcn) throws CompileException {
 		Constructor<?> constructor = constructors.get(fqcn);
 		if (constructor == null)
 			throw new CompileException(new NullPointerException());
@@ -65,28 +76,29 @@ public class DynamicGenerator {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
-	public <T> T newInstance(String source, String fqcn) throws CompileException {
+	public <T> T createInstanceByAlias(String alias) throws CompileException {
+		String fqcn = aliasMap.get(alias);
+		return createInstance(fqcn);
+	}
+
+	public <T> T createInstance(String source, String fqcn, String alias) throws CompileException {
 		AtomicReference<CompileException> errors = new AtomicReference<>();
-		Constructor<?> constructor = constructors.computeIfAbsent(fqcn, _fqcn -> {
+		constructors.computeIfAbsent(fqcn, _fqcn -> {
 			try {
-				return execute(source, _fqcn);
+				return execute(source, _fqcn, alias);
 			} catch (CompileException e) {
 				errors.set(e);
 				return null;
 			}
 		});
+		aliasMap.putIfAbsent(alias, fqcn);
 		if (errors.get() != null) {
 			throw errors.get();
 		}
-		try {
-			return (T) constructor.newInstance();
-		} catch (Exception e) {
-			throw new CompileException(e);
-		}
+		return createInstance(fqcn);
 	}
 
-	private Constructor<?> execute(String source, String fqcn) throws CompileException {
+	private Constructor<?> execute(String source, String fqcn, String alias) throws CompileException {
 		try {
 			final ByteArrayOutputStream baos = new ByteArrayOutputStream();
 			final SimpleJavaFileObject output = new SimpleJavaFileObject(URI.create("bytes:///" + fqcn.replaceAll("\\.", "/")), Kind.CLASS) {
